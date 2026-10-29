@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi Coklit BPD Desa Selasari 2026</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React 18 & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel Compiler for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- SheetJS / XLSX Library for Import Excel DPS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Font Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    body { 
+      font-family: 'Inter', sans-serif; 
+    }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #printable-stiker, #printable-stiker * { visibility: visible; }
+      #printable-stiker { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 antialiased selection:bg-amber-400 selection:text-blue-950">
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect, useRef } = React;
+
+    // --- STRUKTUR RESMI 8 DUSUN & TPS DESA SELASARI ---
+    const LIST_DUSUN = [
+      { id: 1, name: 'Salakambang', tps: 'TPS 01', officerName: 'Asep Saepudin (Petugas 1)', username: 'pantarlih1', quota: 554 },
+      { id: 2, name: 'Tenjosari', tps: 'TPS 02', officerName: 'Siti Fatimah (Petugas 2)', username: 'pantarlih2', quota: 508 },
+      { id: 3, name: 'Banjarsari', tps: 'TPS 03', officerName: 'Dedi Mulyadi (Petugas 3)', username: 'pantarlih3', quota: 460 },
+      { id: 4, name: 'Karangmukti', tps: 'TPS 04', officerName: 'Endang Kusnadi (Petugas 4)', username: 'pantarlih4', quota: 439 },
+      { id: 5, name: 'Giriharja', tps: 'TPS 05', officerName: 'Agus Setiawan (Petugas 5)', username: 'pantarlih5', quota: 394 },
+      { id: 6, name: 'Cikawung', tps: 'TPS 06', officerName: 'Yayan Mulyana (Petugas 6)', username: 'pantarlih6', quota: 604 },
+      { id: 7, name: 'Pepedan', tps: 'TPS 07', officerName: 'Dewi Lestari (Petugas 7)', username: 'pantarlih7', quota: 522 },
+      { id: 8, name: 'Cikadu', tps: 'TPS 08', officerName: 'Iwan Hermawan (Petugas 8)', username: 'pantarlih8', quota: 297 }
+    ];
+
+    // --- AKUN PENGGUNA (1 ADMIN UTAMA + 8 PETUGAS DUSUN) ---
+    const INITIAL_OFFICERS = [
+      {
+        id: 100,
+        name: 'Admin Utama Panitia BPD',
+        username: 'admin',
+        role: 'admin',
+        dusun: 'Semua Dusun',
+        tps: 'TPS 01 - 08',
+        phone: '081122334455',
+        email: 'panitia.bpd@selasari.desa.id',
+        status: 'Aktif'
+      },
+      ...LIST_DUSUN.map((d) => ({
+        id: d.id,
+        name: d.officerName,
+        username: d.username,
+        role: 'pantarlih',
+        dusun: d.name,
+        tps: d.tps,
+        phone: `08123456780${d.id}`,
+        email: `${d.username}@selasari.desa.id`,
+        status: 'Aktif'
+      }))
+    ];
+
+    // --- GENERATOR DATA PEMILIH SAMPEL REPRESENTATIF (3.781 TOTAL QUOTA) ---
+    const generateInitialVoters = () => {
+      const voters = [];
+      let idCounter = 1001;
+
+      const sampleNames = [
+        "Suharna", "Marlina", "Didi Kurniadi", "Rian Hidayat", "Nia Kurniasih",
+        "Agus Setiawan", "Eni Ratnasari", "Maman Suraman", "Iim Halimah", "Odin Samsudin",
+        "Kokom Komariah", "Asep Saepulloh", "Dewi Rosita", "Yayan Mulyana", "Rudi Hermawan",
+        "Tatan Rustandi", "Rina Herlina", "Ujang Supriatna", "Teti Sumiati", "Cicih Suhaeni"
+      ];
+
+      LIST_DUSUN.forEach((dusunItem, dIdx) => {
+        for (let i = 1; i <= 10; i++) {
+          const isMale = (i % 2 !== 0);
+          const nameIndex = (dIdx * 10 + i) % sampleNames.length;
+          
+          voters.push({
+            id: idCounter++,
+            nkk: `320724${10 + dIdx}0100${100 + i}`,
+            nik: `320724${isMale ? '15' : '52'}05${80 + (i % 20)}00${10 + i}`,
+            nama: `${sampleNames[nameIndex]} (${dusunItem.name})`,
+            tempatLahir: i % 3 === 0 ? 'Ciamis' : 'Pangandaran',
+            tglLahir: `19${75 + (i * 2)}-0${(i % 9) + 1}-15`,
+            statusKawin: i % 4 === 0 ? 'Belum Kawin' : 'Kawin',
+            jenisKelamin: isMale ? 'L' : 'P',
+            alamat: `Dusun ${dusunItem.name} RT 00${(i % 3) + 1} RW 00${dIdx + 1}`,
+            rt: `00${(i % 3) + 1}`,
+            rw: `00${dIdx + 1}`,
+            dusun: dusunItem.name,
+            tps: dusunItem.tps,
+            disabilitas: i === 7 ? 'Fisik' : 'Tidak',
+            statusCoklit: i === 1 ? 'MS' : (i === 2 ? 'TMS' : (i === 3 ? 'Ubah Data' : 'Belum')),
+            tmsReason: i === 2 ? 'Meninggal Dunia' : '',
+            tglCoklit: i <= 3 ? '2026-03-01' : ''
+          });
+        }
+      });
+
+      return voters;
+    };
+
+    // --- MAIN REACT APPLICATION COMPONENT ---
+    function App() {
+      const [officers, setOfficers] = useState(INITIAL_OFFICERS);
+      const [currentUser, setCurrentUser] = useState(INITIAL_OFFICERS[0]); // Default Admin Utama
+      const [voters, setVoters] = useState(generateInitialVoters);
+
+      // Tab Navigation
+      const [activeTab, setActiveTab] = useState('dashboard'); // dashboard | coklit | officers | settings
+
+      // Search & Filters
+      const [searchTerm, setSearchTerm] = useState('');
+      const [filterDusun, setFilterDusun] = useState('Semua');
+      const [filterStatus, setFilterStatus] = useState('Semua');
+
+      // Modals
+      const [isCoklitModalOpen, setIsCoklitModalOpen] = useState(false);
+      const [isAddVoterModalOpen, setIsAddVoterModalOpen] = useState(false);
+      const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+      const [selectedVoter, setSelectedVoter] = useState(null);
+
+      // Modal Admin Officer
+      const [isAddOfficerModalOpen, setIsAddOfficerModalOpen] = useState(false);
+      const [editingOfficer, setEditingOfficer] = useState(null);
+
+      // Preference States
+      const [textSize, setTextSize] = useState('normal'); 
+      const [toastMessage, setToastMessage] = useState('');
+      const fileInputRef = useRef(null);
+
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+
+      const showToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(''), 3500);
+      };
+
+      // Filtered Voters Dynamic
+      const filteredVoters = useMemo(() => {
+        return voters.filter(v => {
+          if (currentUser.role === 'pantarlih' && v.dusun !== currentUser.dusun) {
+            return false;
+          }
+          const matchSearch = v.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              v.nik.includes(searchTerm) ||
+                              v.nkk.includes(searchTerm);
+          const matchDusun = filterDusun === 'Semua' || v.dusun === filterDusun;
+          const matchStatus = filterStatus === 'Semua' || v.statusCoklit === filterStatus;
+
+          return matchSearch && matchDusun && matchStatus;
+        });
+      }, [voters, currentUser, searchTerm, filterDusun, filterStatus]);
+
+      // Statistics Calculation
+      const stats = useMemo(() => {
+        const scopeVoters = currentUser.role === 'pantarlih' 
+          ? voters.filter(v => v.dusun === currentUser.dusun) 
+          : voters;
+
+        const totalSample = scopeVoters.length;
+        const ms = scopeVoters.filter(v => v.statusCoklit === 'MS').length;
+        const tms = scopeVoters.filter(v => v.statusCoklit === 'TMS').length;
+        const ubah = scopeVoters.filter(v => v.statusCoklit === 'Ubah Data').length;
+        const belum = scopeVoters.filter(v => v.statusCoklit === 'Belum').length;
+        const baru = scopeVoters.filter(v => v.isPemilihBaru).length;
+
+        const totalDPT = currentUser.role === 'pantarlih' 
+          ? (LIST_DUSUN.find(d => d.name === currentUser.dusun)?.quota || totalSample)
+          : 3781;
+
+        const completed = ms + tms + ubah;
+        const progres = totalSample > 0 ? Math.round((completed / totalSample) * 100) : 0;
+
+        return { totalSample, totalDPT, ms, tms, ubah, belum, baru, completed, progres };
+      }, [voters, currentUser]);
+
+      // Switch Role Handler
+      const handleSwitchRole = (officerId) => {
+        const found = officers.find(o => o.id === parseInt(officerId));
+        if (found) {
+          setCurrentUser(found);
+          if (found.role === 'pantarlih') {
+            setFilterDusun(found.dusun);
+          } else {
+            setFilterDusun('Semua');
+          }
+          showToast(`Berhasil beralih akun: ${found.name}`);
+        }
+      };
+
+      // Save Coklit Form
+      const handleSaveCoklit = (updatedData) => {
+        setVoters(prev => prev.map(v => v.id === updatedData.id ? updatedData : v));
+        setIsCoklitModalOpen(false);
+        showToast(`Data Coklit atas nama "${updatedData.nama}" berhasil disimpan!`);
+      };
+
+      // Add New Voter
+      const handleAddNewVoter = (newVoter) => {
+        const created = {
+          ...newVoter,
+          id: Date.now(),
+          statusCoklit: 'MS',
+          tglCoklit: new Date().toISOString().split('T')[0],
+          isPemilihBaru: true
+        };
+        setVoters(prev => [created, ...prev]);
+        setIsAddVoterModalOpen(false);
+        showToast(`Pemilih Baru "${created.nama}" berhasil ditambahkan!`);
+      };
+
+      // Delete Voter
+      const handleDeleteVoter = (voterId, voterName) => {
+        if (window.confirm(`Apakah Anda yakin ingin menghapus data pemilih "${voterName}"?`)) {
+          setVoters(prev => prev.filter(v => v.id !== voterId));
+          showToast(`Data pemilih "${voterName}" telah dihapus.`);
+        }
+      };
+
+      // Parse File Excel DPS
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            const importedVoters = [];
+            for (let i = 0; i < json.length; i++) {
+              const row = json[i];
+              if (row && row[2] && String(row[2]).length >= 15) {
+                importedVoters.push({
+                  id: Date.now() + i,
+                  nkk: String(row[1] || ''),
+                  nik: String(row[2] || ''),
+                  nama: String(row[3] || ''),
+                  tempatLahir: String(row[4] || ''),
+                  tglLahir: String(row[5] || '').replace(/\|/g, '-'),
+                  statusKawin: row[6] === 'S' ? 'Kawin' : row[6] === 'B' ? 'Belum Kawin' : 'Pernah Kawin',
+                  jenisKelamin: String(row[7] || 'L'),
+                  alamat: String(row[8] || ''),
+                  rt: String(row[9] || '001').padStart(3, '0'),
+                  rw: String(row[10] || '001').padStart(3, '0'),
+                  dusun: String(row[8] || '').includes('SALAK') ? 'Salakambang' :
+                         String(row[8] || '').includes('TENJO') ? 'Tenjosari' :
+                         String(row[8] || '').includes('BANJAR') ? 'Banjarsari' :
+                         String(row[8] || '').includes('KARANG') ? 'Karangmukti' :
+                         String(row[8] || '').includes('GIRI') ? 'Giriharja' :
+                         String(row[8] || '').includes('CIKAW') ? 'Cikawung' :
+                         String(row[8] || '').includes('PEPED') ? 'Pepedan' : 'Cikadu',
+                  tps: 'TPS 01',
+                  disabilitas: 'Tidak',
+                  statusCoklit: 'Belum',
+                  tmsReason: '',
+                  tglCoklit: ''
+                });
+              }
+            }
+
+            if (importedVoters.length > 0) {
+              setVoters(importedVoters);
+              showToast(`Berhasil memuat ${importedVoters.length} data pemilih dari file Excel!`);
+            } else {
+              alert('Tidak dapat menemukan format baris DPT yang sesuai pada file Excel.');
+            }
+          } catch (err) {
+            alert('Gagal memproses file Excel: ' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      };
+
+      // Export CSV Model A BPD
+      const handleExportCSV = () => {
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "No,NKK,NIK,Nama Pemilih,Tempat Lahir,Tanggal Lahir,Status Kawin,JK,Dusun,RT,RW,TPS,Disabilitas,Status Coklit,Alasan TMS,Tanggal Coklit\n";
+        
+        filteredVoters.forEach((v, idx) => {
+          const row = [
+            idx + 1, `'${v.nkk}`, `'${v.nik}`, `"${v.nama}"`, v.tempatLahir, v.tglLahir,
+            v.statusKawin, v.jenisKelamin, v.dusun, v.rt, v.rw, v.tps, v.disabilitas,
+            v.statusCoklit, `"${v.tmsReason || ''}"`, v.tglCoklit || ''
+          ].join(",");
+          csvContent += row + "\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Rekap_Coklit_Model_A_BPD_Selasari_${currentUser.dusun.replace(/\s+/g, '_')}_2026.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Laporan Coklit Model A BPD berhasil diunduh!');
+      };
+
+      return (
+        <div className={`min-h-screen bg-slate-100 text-slate-900 font-sans ${textSize === 'large' ? 'text-base' : 'text-xs'}`}>
+          
+          {/* TOAST NOTIFICATION */}
+          {toastMessage && (
+            <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center space-x-3 border border-slate-700 animate-bounce">
+              <span className="text-amber-400 font-bold text-base">✨</span>
+              <span className="font-semibold text-xs">{toastMessage}</span>
+            </div>
+          )}
+
+          {/* HEADER BANNER BIRU SELASARI */}
+          <header className="bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white shadow-xl border-b-4 border-amber-400 sticky top-0 z-30">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                
+                {/* Logo & Judul Aplikasi */}
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white/10 p-2.5 rounded-2xl backdrop-blur-md border border-white/20 shadow-inner flex-shrink-0">
+                    <svg className="w-8 h-8 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V11m0 0h4m-4 0H9m4 0V5m0 0h-4"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="bg-amber-400 text-blue-950 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider shadow">
+                        BPD SELASARI 2026
+                      </span>
+                      <span className="text-blue-200 text-[11px] font-medium">Panitia Pemilihan Desa Selasari</span>
+                    </div>
+                    <h1 className="text-lg sm:text-xl font-black tracking-tight text-white drop-shadow">
+                      Aplikasi Coklit Pemilihan BPD 2026
+                    </h1>
+                  </div>
+                </div>
+
+                {/* Account Switcher */}
+                <div className="flex items-center justify-between md:justify-end space-x-3 bg-blue-950/60 p-2 rounded-xl border border-blue-700/50 backdrop-blur-sm">
+                  <div className="text-right px-2">
+                    <div className="text-[10px] text-blue-200 font-medium flex items-center justify-end space-x-1">
+                      <span>{currentUser.role === 'admin' ? 'ADMINISTRATOR UTAMA' : 'PANTARLIH (8 DUSUN)'}</span>
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    </div>
+                    <div className="font-bold text-white truncate max-w-[160px] text-xs">{currentUser.name}</div>
+                    <div className="text-[10px] text-amber-300 font-semibold">{currentUser.dusun} • {currentUser.tps}</div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 border-l border-blue-700/60 pl-3">
+                    <select 
+                      className="bg-blue-900 text-white text-xs border border-blue-600 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium cursor-pointer"
+                      value={currentUser.id}
+                      onChange={(e) => handleSwitchRole(e.target.value)}
+                      title="Ganti Peran Akun Pengguna"
+                    >
+                      <optgroup label="Admin Panitia BPD">
+                        {officers.filter(o => o.role === 'admin').map(o => (
+                          <option key={o.id} value={o.id}>👑 {o.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="8 Petugas Dusun (Pantarlih)">
+                        {officers.filter(o => o.role === 'pantarlih').map(o => (
+                          <option key={o.id} value={o.id}>📋 {o.name} ({o.dusun})</option>
+                        ))}
+                      </optgroup>
+                    </select>
+
+                    <button 
+                      onClick={() => setActiveTab('settings')}
+                      className={`p-2 rounded-lg transition ${activeTab === 'settings' ? 'bg-amber-400 text-blue-950 font-bold' : 'bg-blue-800 hover:bg-blue-700 text-white'}`}
+                      title="Pengaturan Profil"
+                    >
+                      ⚙️
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* NAVBAR NAVIGATION TABS */}
+            <div className="bg-blue-950/80 backdrop-blur-md px-4 sm:px-6 lg:px-8 border-t border-blue-800/80">
+              <div className="max-w-7xl mx-auto flex space-x-2 overflow-x-auto py-2 scrollbar-none">
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap ${
+                    activeTab === 'dashboard' ? 'bg-blue-600 text-white shadow-lg border border-blue-400' : 'text-blue-200 hover:bg-blue-900/60 hover:text-white'
+                  }`}
+                >
+                  <span>📊 Dashboard & Progres 8 Dusun</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('coklit')}
+                  className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap ${
+                    activeTab === 'coklit' ? 'bg-blue-600 text-white shadow-lg border border-blue-400' : 'text-blue-200 hover:bg-blue-900/60 hover:text-white'
+                  }`}
+                >
+                  <span>👥 Data Pemilih (Coklit)</span>
+                </button>
+
+                {currentUser.role === 'admin' && (
+                  <button
+                    onClick={() => setActiveTab('officers')}
+                    className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap ${
+                      activeTab === 'officers' ? 'bg-blue-600 text-white shadow-lg border border-blue-400' : 'text-blue-200 hover:bg-blue-900/60 hover:text-white'
+                    }`}
+                  >
+                    <span>🛡️ Manajemen 8 Petugas</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap ${
+                    activeTab === 'settings' ? 'bg-blue-600 text-white shadow-lg border border-blue-400' : 'text-blue-200 hover:bg-blue-900/60 hover:text-white'
+                  }`}
+                >
+                  <span>⚙️ Pengaturan Profil</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* MAIN CONTAINER CONTENT */}
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            
+            {/* TAB 1: DASHBOARD */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                
+                <div className="bg-gradient-to-r from-blue-800 to-indigo-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden border border-blue-700">
+                  <div className="relative z-10 max-w-2xl">
+                    <span className="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[11px] font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                      Wilayah Kerja: {currentUser.dusun} ({currentUser.tps})
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black mt-2">
+                      Selamat Datang, {currentUser.name}
+                    </h2>
+                    <p className="text-blue-100 text-xs mt-1 leading-relaxed">
+                      Lakukan Pencocokan dan Penelitian (Coklit) Data Pemilih Awal Pemilihan Anggota BPD Desa Selasari Tahun 2026 secara akurat di 8 Wilayah Dusun.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2.5">
+                      <button
+                        onClick={() => setActiveTab('coklit')}
+                        className="bg-amber-400 hover:bg-amber-300 text-blue-950 font-bold px-4 py-2 rounded-xl shadow transition uppercase tracking-wider text-[11px]"
+                      >
+                        ✏️ Mulai Pencoklitan
+                      </button>
+                      <button
+                        onClick={handleExportCSV}
+                        className="bg-blue-700 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded-xl transition border border-blue-500 text-[11px]"
+                      >
+                        📥 Unduh Rekapitulasi (Model A)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metric Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+                  <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="text-[10px] text-slate-500 font-semibold uppercase">Total DPT 8 Dusun</div>
+                    <div className="text-xl font-black text-slate-800 mt-1">{stats.totalDPT.toLocaleString('id-ID')}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Pemilih Terdaftar DPT</div>
+                  </div>
+
+                  <div className="bg-emerald-50 p-3.5 rounded-2xl shadow-sm border border-emerald-200">
+                    <div className="text-[10px] text-emerald-700 font-semibold uppercase">✓ Memenuhi (MS)</div>
+                    <div className="text-xl font-black text-emerald-800 mt-1">{stats.ms}</div>
+                    <div className="text-[10px] text-emerald-600 mt-0.5">Terverifikasi Valid</div>
+                  </div>
+
+                  <div className="bg-rose-50 p-3.5 rounded-2xl shadow-sm border border-rose-200">
+                    <div className="text-[10px] text-rose-700 font-semibold uppercase">✕ TMS</div>
+                    <div className="text-xl font-black text-rose-800 mt-1">{stats.tms}</div>
+                    <div className="text-[10px] text-rose-600 mt-0.5">Meninggal, Pindah, dll</div>
+                  </div>
+
+                  <div className="bg-amber-50 p-3.5 rounded-2xl shadow-sm border border-amber-200">
+                    <div className="text-[10px] text-amber-700 font-semibold uppercase">📝 Ubah Data</div>
+                    <div className="text-xl font-black text-amber-800 mt-1">{stats.ubah}</div>
+                    <div className="text-[10px] text-amber-600 mt-0.5">Perbaikan Elemen</div>
+                  </div>
+
+                  <div className="bg-indigo-50 p-3.5 rounded-2xl shadow-sm border border-indigo-200">
+                    <div className="text-[10px] text-indigo-700 font-semibold uppercase">👤 Pemilih Baru</div>
+                    <div className="text-xl font-black text-indigo-800 mt-1">{stats.baru}</div>
+                    <div className="text-[10px] text-indigo-600 mt-0.5">Potensial Tambahan</div>
+                  </div>
+
+                  <div className="bg-blue-900 text-white p-3.5 rounded-2xl shadow-md border border-blue-800 flex flex-col justify-between">
+                    <div className="text-[10px] text-blue-200 font-semibold uppercase">Progres Sampel</div>
+                    <div className="text-2xl font-black text-amber-300 mt-1">{stats.progres}%</div>
+                    <div className="w-full bg-blue-950 rounded-full h-1.5 mt-2">
+                      <div className="bg-amber-400 h-1.5 rounded-full transition-all duration-500" style={{ width: `${stats.progres}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Breakdown 8 Dusun */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+                  <h3 className="text-sm font-bold text-blue-950 mb-4">
+                    📚 Kuota DPT & Progres Coklit 8 Dusun Desa Selasari
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {LIST_DUSUN.map((dusunItem) => {
+                      const dVoters = voters.filter(v => v.dusun === dusunItem.name);
+                      const dDone = dVoters.filter(v => v.statusCoklit !== 'Belum').length;
+                      const dPercent = dVoters.length > 0 ? Math.round((dDone / dVoters.length) * 100) : 0;
+
+                      return (
+                        <div key={dusunItem.name} className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-bold text-slate-800 text-xs">Dusun {dusunItem.name}</span>
+                            <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{dusunItem.tps}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 font-medium mb-1">
+                            Total Kuota DPT: <strong className="text-blue-950 font-bold">{dusunItem.quota}</strong>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-slate-500 mb-2">
+                            <span>Sampel Coklit: <strong>{dDone}</strong> / {dVoters.length}</span>
+                            <span className="font-bold text-blue-900">{dPercent}%</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2">
+                            <div className="bg-blue-700 h-2 rounded-full transition-all duration-300" style={{ width: `${dPercent}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB 2: DATA PEMILIH */}
+            {activeTab === 'coklit' && (
+              <div className="space-y-4">
+                
+                {/* Filter Toolbar */}
+                <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-3 items-center justify-between">
+                  
+                  <div className="relative w-full md:w-80">
+                    <input
+                      type="text"
+                      placeholder="Cari Nama, NIK, atau NKK..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    {currentUser.role === 'admin' && (
+                      <select
+                        value={filterDusun}
+                        onChange={(e) => setFilterDusun(e.target.value)}
+                        className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                      >
+                        <option value="Semua">Semua Dusun (8 Dusun)</option>
+                        {LIST_DUSUN.map(d => (
+                          <option key={d.name} value={d.name}>Dusun {d.name} ({d.tps})</option>
+                        ))}
+                      </select>
+                    )}
+
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    >
+                      <option value="Semua">Semua Status Coklit</option>
+                      <option value="Belum">Belum Dicoklit</option>
+                      <option value="MS">Memenuhi Syarat (MS)</option>
+                      <option value="TMS">Tidak Memenuhi Syarat (TMS)</option>
+                      <option value="Ubah Data">Ubah Data</option>
+                    </select>
+
+                    <button
+                      onClick={() => setIsAddVoterModalOpen(true)}
+                      className="bg-blue-800 hover:bg-blue-900 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center space-x-1 shadow transition"
+                    >
+                      <span>+ Tambah Pemilih</span>
+                    </button>
+
+                    {/* Button Upload File Excel DPS */}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      accept=".xlsx, .xls"
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="bg-indigo-700 hover:bg-indigo-800 text-white font-bold px-3 py-2 rounded-xl text-xs transition"
+                      title="Import File Excel DPS Resmi"
+                    >
+                      <span>📂 Import Excel</span>
+                    </button>
+
+                    <button
+                      onClick={handleExportCSV}
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center space-x-1 transition"
+                    >
+                      <span>📥 Export CSV</span>
+                    </button>
+                  </div>
+
+                </div>
+
+                {/* Table Data Pemilih */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-blue-950 font-bold border-b border-slate-200 uppercase tracking-wider">
+                          <th className="p-3">No</th>
+                          <th className="p-3">Identitas Pemilih (NIK / NKK)</th>
+                          <th className="p-3">Nama Lengkap & TTL</th>
+                          <th className="p-3">JK</th>
+                          <th className="p-3">Wilayah (Dusun/RT/RW/TPS)</th>
+                          <th className="p-3">Status Coklit</th>
+                          <th className="p-3 text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                        {filteredVoters.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="p-8 text-center text-slate-400">
+                              Tidak ada data pemilih yang cocok dengan kriteria filter.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredVoters.map((voter, index) => (
+                            <tr key={voter.id} className="hover:bg-blue-50/40 transition">
+                              <td className="p-3 text-slate-400 font-bold">{index + 1}</td>
+                              <td className="p-3 font-mono">
+                                <div className="font-bold text-slate-900">{voter.nik}</div>
+                                <div className="text-[10px] text-slate-400">NKK: {voter.nkk}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-bold text-blue-900 flex items-center space-x-1">
+                                  <span>{voter.nama}</span>
+                                  {voter.isPemilihBaru && (
+                                    <span className="bg-indigo-100 text-indigo-800 text-[9px] px-1.5 py-0.5 rounded font-bold">Baru</span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-500">{voter.tempatLahir}, {voter.tglLahir}</div>
+                              </td>
+                              <td className="p-3 font-bold">
+                                <span className={`px-2 py-0.5 rounded text-[10px] ${voter.jenisKelamin === 'L' ? 'bg-sky-100 text-sky-800' : 'bg-pink-100 text-pink-800'}`}>
+                                  {voter.jenisKelamin}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-bold text-slate-800">Dusun {voter.dusun}</div>
+                                <div className="text-[10px] text-slate-400">RT {voter.rt} / RW {voter.rw} ({voter.tps})</div>
+                              </td>
+                              <td className="p-3">
+                                {voter.statusCoklit === 'MS' && (
+                                  <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded-lg text-[11px]">
+                                    ✓ MS (Memenuhi)
+                                  </span>
+                                )}
+                                {voter.statusCoklit === 'TMS' && (
+                                  <div>
+                                    <span className="bg-rose-100 text-rose-800 font-bold px-2 py-1 rounded-lg text-[11px]">
+                                      ✕ TMS
+                                    </span>
+                                    <div className="text-[9px] text-rose-600 font-semibold mt-0.5">{voter.tmsReason}</div>
+                                  </div>
+                                )}
+                                {voter.statusCoklit === 'Ubah Data' && (
+                                  <span className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-lg text-[11px]">
+                                    ✏️ Ubah Data
+                                  </span>
+                                )}
+                                {voter.statusCoklit === 'Belum' && (
+                                  <span className="bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-lg text-[10px]">
+                                    Belum Coklit
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center space-x-1.5">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedVoter(voter);
+                                      setIsCoklitModalOpen(true);
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1.5 rounded-lg text-[11px] shadow transition"
+                                  >
+                                    ✏️ Coklit
+                                  </button>
+
+                                  {voter.statusCoklit !== 'Belum' && (
+                                    <button
+                                      onClick={() => {
+                                        setSelectedVoter(voter);
+                                        setIsPrintModalOpen(true);
+                                      }}
+                                      className="bg-amber-500 hover:bg-amber-600 text-blue-950 font-bold px-2 py-1.5 rounded-lg text-[11px] transition"
+                                    >
+                                      🖨️ Bukti
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => handleDeleteVoter(voter.id, voter.nama)}
+                                    className="bg-rose-50 hover:bg-rose-100 text-rose-700 p-1.5 rounded-lg border border-rose-200 transition"
+                                    title="Hapus Data Pemilih"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB 3: MANAJEMEN PETUGAS (ADMIN) */}
+            {activeTab === 'officers' && currentUser.role === 'admin' && (
+              <div className="space-y-6">
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+                    <div>
+                      <h3 className="text-base font-bold text-blue-950">
+                        🛡️ Daftar Akun Petugas Coklit Lapangan (8 Dusun)
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Kelola akun pengguna untuk Admin Utama dan 8 Petugas Dusun Pemilihan BPD Selasari.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingOfficer(null);
+                        setIsAddOfficerModalOpen(true);
+                      }}
+                      className="bg-blue-800 hover:bg-blue-900 text-white font-bold px-4 py-2 rounded-xl text-xs shadow"
+                    >
+                      + Tambah Akun Petugas
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
+                          <th className="p-3">Nama Petugas</th>
+                          <th className="p-3">Username</th>
+                          <th className="p-3">Role</th>
+                          <th className="p-3">Wilayah Tugas</th>
+                          <th className="p-3">No. WhatsApp / Email</th>
+                          <th className="p-3">Status</th>
+                          <th className="p-3 text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {officers.map((officer) => (
+                          <tr key={officer.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold text-slate-900">{officer.name}</td>
+                            <td className="p-3 font-mono text-blue-700">{officer.username}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${officer.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+                                {officer.role.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="p-3 font-semibold">{officer.dusun} ({officer.tps})</td>
+                            <td className="p-3">
+                              <div>{officer.phone}</div>
+                              <div className="text-[10px] text-slate-400">{officer.email}</div>
+                            </td>
+                            <td className="p-3">
+                              <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">
+                                {officer.status}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <button
+                                onClick={() => {
+                                  setEditingOfficer(officer);
+                                  setIsAddOfficerModalOpen(true);
+                                }}
+                                className="text-blue-700 hover:text-blue-900 font-bold px-2.5 py-1 bg-blue-50 rounded border border-blue-200 text-[10px]"
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: PENGATURAN PROFIL */}
+            {activeTab === 'settings' && (
+              <div className="max-w-3xl mx-auto space-y-6">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex items-center space-x-4 border-b border-slate-100 pb-4">
+                    <div className="w-14 h-14 bg-gradient-to-tr from-blue-700 to-indigo-800 text-amber-300 rounded-2xl flex items-center justify-center font-black text-xl shadow-md border-2 border-amber-400">
+                      {currentUser.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">{currentUser.name}</h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        {currentUser.role === 'admin' ? 'Administrator Panitia BPD' : `Petugas Coklit - ${currentUser.dusun}`}
+                      </p>
+                      <div className="mt-1 flex items-center space-x-2">
+                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          Akun Aktif
+                        </span>
+                        <span className="text-[11px] text-slate-400">Username: <strong className="font-mono text-slate-700">{currentUser.username}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-4 text-xs">
+                    <h4 className="font-bold text-blue-950 uppercase tracking-wider">
+                      📋 Informasi Profil Pengguna
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Nama Lengkap</label>
+                        <input type="text" defaultValue={currentUser.name} readOnly className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-700" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Nomor WhatsApp</label>
+                        <input type="text" defaultValue={currentUser.phone} readOnly className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-700" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Email</label>
+                        <input type="text" defaultValue={currentUser.email} readOnly className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-700" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Dusun & TPS Tugas</label>
+                        <input type="text" defaultValue={`${currentUser.dusun} (${currentUser.tps})`} readOnly className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-700" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                  <h4 className="font-bold text-blue-950 uppercase tracking-wider text-xs mb-3">
+                    ⚙️ Preferensi Tampilan Aplikasi
+                  </h4>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => setTextSize('normal')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${textSize === 'normal' ? 'bg-blue-900 text-white border-blue-900' : 'bg-slate-50 text-slate-700'}`}
+                    >
+                      Ukuran Standar
+                    </button>
+                    <button
+                      onClick={() => setTextSize('large')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${textSize === 'large' ? 'bg-blue-900 text-white border-blue-900' : 'bg-slate-50 text-slate-700'}`}
+                    >
+                      Ukuran Teks Besar (Mobile Lapangan)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {/* MODAL 1: FORM COKLIT */}
+          {isCoklitModalOpen && selectedVoter && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+                <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center border-b-2 border-amber-400">
+                  <h3 className="font-bold text-xs sm:text-sm">✏️ Form Coklit Pemilih BPD</h3>
+                  <button onClick={() => setIsCoklitModalOpen(false)} className="text-white font-bold">✕</button>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  handleSaveCoklit({
+                    ...selectedVoter,
+                    nama: formData.get('nama'),
+                    nkk: formData.get('nkk'),
+                    nik: formData.get('nik'),
+                    jenisKelamin: formData.get('jenisKelamin'),
+                    statusKawin: formData.get('statusKawin'),
+                    disabilitas: formData.get('disabilitas'),
+                    statusCoklit: formData.get('statusCoklit'),
+                    tmsReason: formData.get('tmsReason') || '',
+                    tglCoklit: new Date().toISOString().split('T')[0]
+                  });
+                }} className="p-5 space-y-3.5 text-xs">
+                  
+                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
+                    <div className="font-bold text-blue-950 text-sm">{selectedVoter.nama}</div>
+                    <div className="text-slate-600 mt-0.5">NIK: {selectedVoter.nik} • NKK: {selectedVoter.nkk}</div>
+                    <div className="text-slate-500 mt-0.5">Dusun {selectedVoter.dusun} RT {selectedVoter.rt}/RW {selectedVoter.rw} ({selectedVoter.tps})</div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">Status Coklit Pemilih</label>
+                    <select
+                      name="statusCoklit"
+                      defaultValue={selectedVoter.statusCoklit === 'Belum' ? 'MS' : selectedVoter.statusCoklit}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-slate-900 focus:ring-2 focus:ring-blue-600"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const reasonBox = document.getElementById('tms-reason-box');
+                        if (reasonBox) {
+                          reasonBox.style.display = val === 'TMS' ? 'block' : 'none';
+                        }
+                      }}
+                    >
+                      <option value="MS">Memenuhi Syarat (MS) - Data Sesuai</option>
+                      <option value="TMS">Tidak Memenuhi Syarat (TMS)</option>
+                      <option value="Ubah Data">Ubah Data / Perbaikan Elemen</option>
+                    </select>
+                  </div>
+
+                  <div id="tms-reason-box" style={{ display: selectedVoter.statusCoklit === 'TMS' ? 'block' : 'none' }}>
+                    <label className="block font-bold text-rose-700 mb-1">Alasan TMS</label>
+                    <select
+                      name="tmsReason"
+                      defaultValue={selectedVoter.tmsReason || 'Meninggal Dunia'}
+                      className="w-full bg-rose-50 border border-rose-300 rounded-xl px-3 py-2 text-rose-900 font-semibold"
+                    >
+                      <option value="Meninggal Dunia">1. Meninggal Dunia</option>
+                      <option value="Ganda">2. Terdaftar Ganda</option>
+                      <option value="Di Bawah Umur">3. Di Bawah Umur (&lt;17 Th & Belum Kawin)</option>
+                      <option value="Pindah Domisili">4. Pindah Domisili Keluar Desa</option>
+                      <option value="TNI/Polri">5. Alih Status TNI / POLRI</option>
+                      <option value="Tidak Dikenal">6. Tidak Dikenal / Fiktif</option>
+                      <option value="Hak Pilih Dicabut">7. Hak Pilih Dicabut Pengadilan</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Nama Pemilih</label>
+                      <input type="text" name="nama" defaultValue={selectedVoter.nama} className="w-full bg-slate-50 border rounded-lg p-2 font-semibold" />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Jenis Kelamin</label>
+                      <select name="jenisKelamin" defaultValue={selectedVoter.jenisKelamin} className="w-full bg-slate-50 border rounded-lg p-2 font-semibold">
+                        <option value="L">Laki-Laki (L)</option>
+                        <option value="P">Perempuan (P)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Status Perkawinan</label>
+                      <select name="statusKawin" defaultValue={selectedVoter.statusKawin} className="w-full bg-slate-50 border rounded-lg p-2">
+                        <option value="Belum Kawin">Belum Kawin</option>
+                        <option value="Kawin">Kawin</option>
+                        <option value="Pernah Kawin">Pernah Kawin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Disabilitas</label>
+                      <select name="disabilitas" defaultValue={selectedVoter.disabilitas} className="w-full bg-slate-50 border rounded-lg p-2">
+                        <option value="Tidak">Tidak Ada Disabilitas</option>
+                        <option value="Fisik">Disabilitas Fisik</option>
+                        <option value="Netra">Disabilitas Netra</option>
+                        <option value="Rungu">Disabilitas Rungu</option>
+                        <option value="Mental">Disabilitas Mental</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-2 pt-3 border-t">
+                    <button type="button" onClick={() => setIsCoklitModalOpen(false)} className="bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl">Batal</button>
+                    <button type="submit" className="bg-blue-800 hover:bg-blue-900 text-white font-bold px-5 py-2 rounded-xl shadow">Simpan Coklit</button>
+                  </div>
+
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 2: TAMBAH PEMILIH BARU */}
+          {isAddVoterModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+                <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center">
+                  <h3 className="font-bold text-xs sm:text-sm">👤 Registrasi Pemilih Baru / Potensial</h3>
+                  <button onClick={() => setIsAddVoterModalOpen(false)} className="text-white font-bold">✕</button>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.target);
+                  const dusunVal = fd.get('dusun');
+                  const matchedDusun = LIST_DUSUN.find(d => d.name === dusunVal);
+
+                  handleAddNewVoter({
+                    nkk: fd.get('nkk'),
+                    nik: fd.get('nik'),
+                    nama: fd.get('nama'),
+                    tempatLahir: fd.get('tempatLahir'),
+                    tglLahir: fd.get('tglLahir'),
+                    jenisKelamin: fd.get('jenisKelamin'),
+                    statusKawin: fd.get('statusKawin'),
+                    dusun: dusunVal,
+                    rt: fd.get('rt'),
+                    rw: fd.get('rw'),
+                    tps: matchedDusun ? matchedDusun.tps : 'TPS 01',
+                    disabilitas: fd.get('disabilitas'),
+                    alamat: `Dusun ${dusunVal} RT ${fd.get('rt')} RW ${fd.get('rw')}`
+                  });
+                }} className="p-5 space-y-3 text-xs max-h-[80vh] overflow-y-auto">
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">NIK (16 Digit)</label>
+                      <input type="text" name="nik" required maxLength="16" placeholder="320724..." className="w-full bg-slate-50 border rounded-lg p-2 font-mono" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">NKK (16 Digit)</label>
+                      <input type="text" name="nkk" required maxLength="16" placeholder="320724..." className="w-full bg-slate-50 border rounded-lg p-2 font-mono" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Nama Lengkap Pemilih</label>
+                    <input type="text" name="nama" required placeholder="Nama sesuai KTP/KK" className="w-full bg-slate-50 border rounded-lg p-2 font-bold" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Tempat Lahir</label>
+                      <input type="text" name="tempatLahir" required placeholder="Pangandaran" className="w-full bg-slate-50 border rounded-lg p-2" />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Tanggal Lahir</label>
+                      <input type="date" name="tglLahir" required className="w-full bg-slate-50 border rounded-lg p-2" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Dusun Wilayah</label>
+                      <select name="dusun" defaultValue={currentUser.dusun !== 'Semua Dusun' ? currentUser.dusun : 'Salakambang'} className="w-full bg-slate-50 border rounded-lg p-2 font-semibold">
+                        {LIST_DUSUN.map(d => (
+                          <option key={d.name} value={d.name}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">RT</label>
+                      <input type="text" name="rt" defaultValue="001" className="w-full bg-slate-50 border rounded-lg p-2" />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">RW</label>
+                      <input type="text" name="rw" defaultValue="001" className="w-full bg-slate-50 border rounded-lg p-2" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Jenis Kelamin</label>
+                      <select name="jenisKelamin" className="w-full bg-slate-50 border rounded-lg p-2">
+                        <option value="L">Laki-Laki</option>
+                        <option value="P">Perempuan</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Status Kawin</label>
+                      <select name="statusKawin" className="w-full bg-slate-50 border rounded-lg p-2">
+                        <option value="Belum Kawin">Belum Kawin</option>
+                        <option value="Kawin">Kawin</option>
+                        <option value="Pernah Kawin">Pernah Kawin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Disabilitas</label>
+                      <select name="disabilitas" className="w-full bg-slate-50 border rounded-lg p-2">
+                        <option value="Tidak">Tidak</option>
+                        <option value="Fisik">Fisik</option>
+                        <option value="Netra">Netra</option>
+                        <option value="Rungu">Rungu</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-2 pt-3 border-t">
+                    <button type="button" onClick={() => setIsAddVoterModalOpen(false)} className="bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl">Batal</button>
+                    <button type="submit" className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 py-2 rounded-xl">Simpan Pemilih Baru</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 3: CETAK BUKTI STIKER COKLIT */}
+          {isPrintModalOpen && selectedVoter && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+                <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center">
+                  <h3 className="font-bold text-xs sm:text-sm">🖨️ Pratinjau Stiker Coklit BPD 2026</h3>
+                  <button onClick={() => setIsPrintModalOpen(false)} className="text-white font-bold">✕</button>
+                </div>
+
+                <div className="p-5 text-xs bg-slate-50" id="printable-stiker">
+                  <div className="bg-white p-4 rounded-2xl border-2 border-dashed border-blue-900 shadow-md">
+                    <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-2 rounded-xl flex items-center justify-between mb-3">
+                      <span className="font-black text-[10px] uppercase tracking-wide">PANITIA PEMILIHAN BPD SELASARI 2026</span>
+                      <span className="text-[9px] bg-amber-400 text-blue-950 px-1.5 py-0.5 font-bold rounded">MODEL A.B-BPD</span>
+                    </div>
+
+                    <div className="text-center font-bold text-slate-800 uppercase tracking-wide mb-3">
+                      STIKER BUKTI COKLIT PEMILIHAN BPD
+                    </div>
+
+                    <div className="space-y-1.5 text-slate-700">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Nama Kepala/Anggota KK:</span>
+                        <span className="font-bold text-blue-950">{selectedVoter.nama}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Alamat Dusun:</span>
+                        <span className="font-semibold">Dusun {selectedVoter.dusun} RT {selectedVoter.rt}/RW {selectedVoter.rw}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">TPS:</span>
+                        <span className="font-bold text-amber-600">{selectedVoter.tps}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Tanggal Pencoklitan:</span>
+                        <span>{selectedVoter.tglCoklit || new Date().toISOString().split('T')[0]}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-200 flex justify-between items-end text-[10px]">
+                      <div>
+                        <p className="text-slate-500">Petugas Coklit (Pantarlih):</p>
+                        <p className="font-bold text-slate-900 mt-3">{currentUser.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded text-[9px]">
+                          ✓ TERDAFTAR SEBAGAI PEMILIH
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-100 p-3.5 flex justify-between items-center border-t">
+                  <span className="text-[10px] text-slate-500">Panitia Pemilihan BPD Selasari</span>
+                  <button
+                    onClick={() => window.print()}
+                    className="bg-blue-800 hover:bg-blue-900 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 shadow"
+                  >
+                    <span>🖨️ Cetak Stiker</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 4: KELOLA AKUN PETUGAS (ADMIN) */}
+          {isAddOfficerModalOpen && currentUser.role === 'admin' && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+                <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center">
+                  <h3 className="font-bold text-xs sm:text-sm">🛡️ {editingOfficer ? 'Edit Akun Petugas' : 'Tambah Akun Petugas Baru'}</h3>
+                  <button onClick={() => setIsAddOfficerModalOpen(false)} className="text-white font-bold">✕</button>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  const dusunSelected = formData.get('dusun');
+                  const matchedDusun = LIST_DUSUN.find(d => d.name === dusunSelected);
+
+                  const newOfficer = {
+                    id: editingOfficer ? editingOfficer.id : Date.now(),
+                    name: formData.get('name'),
+                    username: formData.get('username'),
+                    role: formData.get('role'),
+                    dusun: dusunSelected,
+                    tps: matchedDusun ? matchedDusun.tps : (formData.get('role') === 'admin' ? 'TPS 01 - 08' : 'TPS 01'),
+                    phone: formData.get('phone'),
+                    email: formData.get('email'),
+                    status: formData.get('status')
+                  };
+
+                  if (editingOfficer) {
+                    setOfficers(prev => prev.map(o => o.id === editingOfficer.id ? newOfficer : o));
+                    showToast(`Akun petugas ${newOfficer.name} diperbarui.`);
+                  } else {
+                    setOfficers(prev => [...prev, newOfficer]);
+                    showToast(`Petugas ${newOfficer.name} ditambahkan.`);
+                  }
+
+                  setIsAddOfficerModalOpen(false);
+                  setEditingOfficer(null);
+                }} className="p-5 space-y-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Nama Lengkap Petugas</label>
+                    <input type="text" name="name" defaultValue={editingOfficer?.name || ''} required className="w-full bg-slate-50 border rounded-lg p-2 font-bold" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Username Login</label>
+                      <input type="text" name="username" defaultValue={editingOfficer?.username || ''} required className="w-full bg-slate-50 border rounded-lg p-2 font-mono" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Peran / Role</label>
+                      <select name="role" defaultValue={editingOfficer?.role || 'pantarlih'} className="w-full bg-slate-50 border rounded-lg p-2">
+                        <option value="pantarlih">Pantarlih (Petugas)</option>
+                        <option value="admin">Administrator</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Dusun Tugas</label>
+                      <select name="dusun" defaultValue={editingOfficer?.dusun || 'Salakambang'} className="w-full bg-slate-50 border rounded-lg p-2">
+                        {LIST_DUSUN.map(d => (
+                          <option key={d.name} value={d.name}>{d.name}</option>
+                        ))}
+                        <option value="Semua Dusun">Semua Dusun (Admin)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Status Akun</label>
+                      <select name="status" defaultValue={editingOfficer?.status || 'Aktif'} className="w-full bg-slate-50 border rounded-lg p-2 font-bold text-emerald-700">
+                        <option value="Aktif">Aktif</option>
+                        <option value="Non-Aktif">Non-Aktif</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Nomor WhatsApp</label>
+                      <input type="text" name="phone" defaultValue={editingOfficer?.phone || ''} required className="w-full bg-slate-50 border rounded-lg p-2" />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Email</label>
+                      <input type="email" name="email" defaultValue={editingOfficer?.email || ''} required className="w-full bg-slate-50 border rounded-lg p-2" />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-2 pt-3 border-t">
+                    <button type="button" onClick={() => setIsAddOfficerModalOpen(false)} className="bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl">Batal</button>
+                    <button type="submit" className="bg-blue-800 hover:bg-blue-900 text-white font-bold px-5 py-2 rounded-xl">Simpan Akun</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* FOOTER */}
+          <footer className="bg-white border-t border-slate-200 mt-12 py-4 text-center text-xs text-slate-500">
+            <p className="font-bold text-blue-950">Aplikasi Coklit Pemilihan Anggota BPD Desa Selasari Tahun 2026</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Sistem Pencoklitan Terintegrasi 8 Dusun / 8 TPS Desa Selasari</p>
+          </footer>
+
+        </div>
+      );
+    }
+
+    // Render App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
